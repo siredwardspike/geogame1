@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Country } from "../types/country"; // your country type
+import type { Country } from "../types/country";
 import { shuffleArray } from "../utils/shuffleArray";
 type FlagQuizState = {
   pool: Country[];
@@ -33,9 +33,10 @@ export const useFlagQuizStore = create<FlagQuizState>((set, get) => ({
   numberOfRounds: -1,
   settings: {
     regions: [],
-    difficulty: "Medium",
-    numberOfRounds: 10,
-    gameMode: ["Flags"],
+    difficulty: "",
+    numberOfRounds: 0,
+    gameMode: [],
+    maxNumberOfRounds: 0,
   },
   setSettings: (settings) => {
     set({

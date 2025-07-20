@@ -1,7 +1,7 @@
 import EndGameScreen from "@/components/EndGameScreen";
+import McqScreen from "@/components/McqScreen";
 import { useFlagQuizStore } from "@/store/flagQuizStore";
 import React from "react";
-import McqScreen from "../components/McqScreen";
 
 export default function GameScreen() {
   const score = useFlagQuizStore((s) => s.score);

@@ -1,11 +1,9 @@
 import type { McqProps } from "@/types/mcqProps";
 import { Image } from "expo-image";
-import React from "react";
-import { StyleSheet, Text, View } from "react-native";
-import { scale } from "react-native-size-matters";
-
-import { Pressable } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import * as Animatable from "react-native-animatable";
+import { scale } from "react-native-size-matters";
 
 export default function Mcq({
   image,
@@ -15,60 +13,101 @@ export default function Mcq({
   questionIndex,
   gameMode,
 }: McqProps) {
+  const [currentIndex, setCurrentIndex] = useState(questionIndex);
+  const [selectedOption, setSelectedOption] = useState<string | null>(null);
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  const questionRef = useRef<Animatable.View & View>(null);
+  const optionsRef = useRef<Animatable.View & View>(null);
+
+  const mode = gameMode[currentIndex % gameMode.length];
   const items = Array.from({ length: 4 }, (_, i) => anweserOptions[i]);
-  const numberOfTypes = gameMode.length;
-  console.log("inside mcq component", gameMode);
-  console.log(numberOfTypes, "numberOfTypes");
+
+  const correctAnswer = question; // Assuming correctAnswer is `question`
+
+  const handleOptionPress = async (item: any) => {
+    if (isAnimating || selectedOption) return;
+
+    setSelectedOption(item.name);
+    const isCorrect = item.name === correctAnswer?.name;
+
+    if (isCorrect) {
+      setIsAnimating(true);
+
+      await Promise.all([
+        questionRef.current?.fadeOutUp?.(300),
+        optionsRef.current?.fadeOutDown?.(300),
+      ]);
+
+      handlePress(item); // Triggers parent update
+
+      setTimeout(() => {
+        setCurrentIndex((prev) => prev + 1);
+        setSelectedOption(null);
+        setIsAnimating(false);
+      }, 100);
+    } else {
+      await optionsRef.current?.shake?.(600);
+      setSelectedOption(null); // allow retry or move on based on logic
+    }
+  };
+
+  useEffect(() => {
+    if (!isAnimating && !selectedOption) setCurrentIndex(questionIndex);
+  }, [questionIndex]);
 
   return (
     <View style={styles.mainContainer}>
-      <Animatable.View animation="fadeInDown" delay={200} duration={600}>
-        {(() => {
-          const mode = gameMode[questionIndex % gameMode.length];
+      <Animatable.View
+        ref={questionRef}
+        key={`question-${currentIndex}`}
+        animation="fadeInDown"
+        duration={500}
+        style={{ alignItems: "center" }}
+      >
+        {mode === "Capitals" && (
+          <Text style={styles.questionText} adjustsFontSizeToFit>
+            {question?.capital}
+          </Text>
+        )}
 
-          if (mode === "Capitals") {
-            return (
-              <Text style={styles.questionText} adjustsFontSizeToFit>
-                {question?.capital}
-              </Text>
-            );
-          }
+        {mode === "Flags" && (
+          <Image
+            source={{ uri: image }}
+            style={styles.image}
+            contentFit="contain"
+            transition={1000}
+          />
+        )}
 
-          if (mode === "Flags") {
-            return (
-              <Image
-                source={{ uri: image }}
-                style={styles.image}
-                contentFit="contain"
-                transition={1000}
-              />
-            );
-          }
-
-          if (mode === "Population") {
-            return (
-              <Text style={styles.questionText} adjustsFontSizeToFit>
-                {`Population: ${question?.population?.toLocaleString()}`}
-              </Text>
-            );
-          }
-        })()}
+        {mode === "Population" && (
+          <Text style={styles.questionText} adjustsFontSizeToFit>
+            {`Population: ${question?.population?.toLocaleString()}`}
+          </Text>
+        )}
       </Animatable.View>
 
       <Animatable.View
+        ref={optionsRef}
+        key={`options-${currentIndex}`}
         animation="fadeInUp"
-        delay={400}
-        duration={800}
+        duration={600}
         style={styles.optionsContainer}
       >
         {items.map((item, index) => (
           <Pressable
-            onPress={() => handlePress(item)}
             key={index}
+            onPress={() => handleOptionPress(item)}
             style={({ pressed }) => [
               styles.option,
               pressed && { transform: [{ scale: 0.96 }] },
+              selectedOption &&
+              selectedOption === item.name &&
+              item.name !== correctAnswer?.name
+                ? { backgroundColor: "#e74c3c" }
+                : {},
             ]}
+            disabled={!!selectedOption}
           >
             <Text style={styles.optionText} adjustsFontSizeToFit>
               {item.name}
@@ -79,6 +118,7 @@ export default function Mcq({
     </View>
   );
 }
+
 const styles = StyleSheet.create({
   mainContainer: {
     flex: 1,

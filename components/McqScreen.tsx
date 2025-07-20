@@ -1,9 +1,10 @@
 import Mcq from "@/components/Mcq";
+import ScoreProgressBar from "@/components/ScoreProgressBar";
 import { useFlagQuizStore } from "@/store/flagQuizStore";
 import { Country } from "@/types/country";
 import { SQLiteProvider, useSQLiteContext } from "expo-sqlite";
 import React, { useEffect, useState } from "react";
-import { SafeAreaView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView, StyleSheet, View } from "react-native";
 import * as Animatable from "react-native-animatable";
 import { scale } from "react-native-size-matters";
 
@@ -88,14 +89,7 @@ export default function McqScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Animatable.Text
-          animation="fadeInLeft"
-          delay={100}
-          style={styles.headerText}
-        ></Animatable.Text>
-        <Text style={styles.scoreText}>Score: {score}</Text>
-      </View>
+      <ScoreProgressBar score={score} maxScore={numberOfRounds} />
 
       <View style={styles.body}>
         <SQLiteProvider databaseName="test.db">

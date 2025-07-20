@@ -10,18 +10,7 @@ import {
 } from "expo-sqlite";
 import { useEffect, useState } from "react";
 import { FlatList, StyleSheet, Text, View } from "react-native";
-async function seedDatabase(db: SQLiteDatabase) {
-  // try {
-  //   await db.execAsync(`DROP TABLE IF EXISTS countries`);
-  //   console.log("Table 'countries' dropped successfully.");
-  // } catch (error) {
-  //   console.error("Error dropping table:", error);
-  // }
-  const res = await fetch(
-    "https://restcountries.com/v3.1/independent?fields=name,population,capital,languages,flags,region,subregion,borders,area"
-  );
-  const countries = await res.json();
-
+export async function seedDatabase(db: SQLiteDatabase) {
   await db.execAsync(`
     CREATE TABLE IF NOT EXISTS countries (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -38,13 +27,31 @@ async function seedDatabase(db: SQLiteDatabase) {
     );
   `);
 
+  const existing = await db.getAllAsync(
+    "SELECT COUNT(*) as count FROM countries"
+  );
+
+  const row = existing?.[0];
+  const count = row ? Object.values(row)[0] : 0;
+
+  if (count > 0) {
+    console.log("Database already seeded");
+    return;
+  }
+
+  console.log("Seeding database...");
+  const res = await fetch(
+    "https://restcountries.com/v3.1/independent?fields=name,population,capital,languages,flags,region,subregion,borders,area"
+  );
+  const countries = await res.json();
+
   for (const country of countries) {
     const name = country.name.common;
     const capital = country.capital?.[0] ?? "N/A";
     const region = country.region;
     const subregion = country.subregion;
     const population = country.population;
-    const numOfBorderingCountires = country.borders.length;
+    const numOfBorderingCountires = country.borders?.length ?? 0;
     const area = country.area;
     const flagUrl = country.flags?.png;
     const difficulty = getDifficultyScore(
@@ -58,31 +65,19 @@ async function seedDatabase(db: SQLiteDatabase) {
     const filename = name.replace(/\s+/g, "_") + ".png";
     const localPath = FileSystem.documentDirectory + "flags/" + filename;
 
-    // Make sure folder exists
     await FileSystem.makeDirectoryAsync(
       FileSystem.documentDirectory + "flags",
       { intermediates: true }
     ).catch(() => {});
 
-    // Check if country already exists
-    const existing = await db.getAllAsync<{ name: string }>(
-      `SELECT name FROM countries WHERE name = ? LIMIT 1`,
-      name
-    );
-
-    if (existing.length > 0) {
-      continue; // Skip if already exists
-    }
-
-    // Download flag only if it doesn't exist
     const fileInfo = await FileSystem.getInfoAsync(localPath);
-    if (!fileInfo.exists) {
+    if (!fileInfo.exists && flagUrl) {
       await FileSystem.downloadAsync(flagUrl, localPath);
     }
 
-    // Insert into DB
     await db.runAsync(
-      `INSERT INTO countries (name, capital, region, subregion, population, flagPath,area,borders,difficulty,difficultyLevel) VALUES (?, ?, ?, ?, ?, ?,?,?,?,?)`,
+      `INSERT INTO countries (name, capital, region, subregion, population, flagPath, area, borders, difficulty, difficultyLevel)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       name,
       capital,
       region,
@@ -96,6 +91,7 @@ async function seedDatabase(db: SQLiteDatabase) {
     );
   }
 }
+
 export default function App() {
   return (
     <View style={styles.container}>
@@ -109,15 +105,26 @@ export default function App() {
 export function Content() {
   const db = useSQLiteContext();
   const [countries, setCountries] = useState<Country[]>([]);
+  const [loading, setLoading] = useState(true);
+
   async function setup() {
     const result = await db.getAllAsync<Country>("SELECT * FROM countries");
     setCountries(result ?? []);
+    setLoading(false);
   }
+
   useEffect(() => {
-    (async () => {
-      await setup();
-    })();
+    setup();
   }, []);
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+        <Text>Loading database...</Text>
+      </View>
+    );
+  }
+
   const sortedCountries = [...countries].sort(
     (a, b) => a.difficulty - b.difficulty
   );
