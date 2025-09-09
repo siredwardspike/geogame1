@@ -12,13 +12,7 @@ import {
 import * as Animatable from "react-native-animatable";
 import { scale } from "react-native-size-matters";
 
-export default function StartMenu({
-  onStart,
-  onSettings,
-}: {
-  onStart: () => void;
-  onSettings: () => void;
-}) {
+export default function StartMenu({ onStart }: { onStart: () => void }) {
   const scaleStart = useRef(new Animated.Value(1)).current;
   const scaleSettings = useRef(new Animated.Value(1)).current;
 
@@ -69,17 +63,6 @@ export default function StartMenu({
           <View style={styles.button}>
             <Ionicons name="play" size={22} color="#fff" />
             <Text style={styles.buttonText}>Start Game</Text>
-          </View>
-        </TouchableWithoutFeedback>
-      </Animated.View>
-
-      <Animated.View style={{ transform: [{ scale: scaleSettings }] }}>
-        <TouchableWithoutFeedback
-          onPress={() => handlePress(onSettings, scaleSettings)}
-        >
-          <View style={styles.secondaryButton}>
-            <Ionicons name="settings-outline" size={22} color="#00e5ff" />
-            <Text style={styles.secondaryButtonText}>Settings</Text>
           </View>
         </TouchableWithoutFeedback>
       </Animated.View>

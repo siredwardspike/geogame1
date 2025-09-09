@@ -1,6 +1,8 @@
 import { useFlagQuizStore } from "@/store/flagQuizStore";
+import { Country } from "@/types/country";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import { useSQLiteContext } from "expo-sqlite";
+import React, { useEffect, useState } from "react";
 import {
   ScrollView,
   StyleSheet,
@@ -22,6 +24,7 @@ export default function SettingsScreen() {
   const [selectedTypes, setSelectedTypes] = useState<string[]>(QUESTION_TYPES);
   const [difficulty, setDifficulty] = useState("Easy");
   const [rounds, setRounds] = useState(5);
+  const [maxRounds, setMaxRounds] = useState(5);
 
   const toggleRegion = (region: string) => {
     setSelectedRegions((prev) => {
@@ -44,6 +47,32 @@ export default function SettingsScreen() {
       }
     });
   };
+  function handleSetRoundIncrease() {
+    if (rounds < maxRounds) {
+      setRounds((r) => r + 1);
+    } else {
+      return;
+    }
+  }
+  const db = useSQLiteContext();
+
+  useEffect(() => {
+    const loadData = async () => {
+      const countries = await db.getAllAsync<Country>(
+        "SELECT * FROM countries"
+      );
+
+      let x = useFlagQuizStore
+        .getState()
+        .findMaxNumberOfRounds(difficulty, selectedRegions, countries);
+      setMaxRounds(x);
+      if (rounds > maxRounds) {
+        setRounds(maxRounds);
+      }
+    };
+
+    loadData();
+  }, [selectedRegions, difficulty, rounds, maxRounds]);
 
   const handleStart = () => {
     setSettings({
@@ -54,11 +83,6 @@ export default function SettingsScreen() {
     });
 
     router.replace("/GameScreen");
-  };
-
-  const handleUnlimited = () => {
-    setRounds(-1);
-    handleStart();
   };
 
   return (
@@ -125,19 +149,21 @@ export default function SettingsScreen() {
           );
         })}
       </View>
-
-      <Text style={styles.sectionTitle}>Rounds: {rounds}</Text>
-      <View style={styles.counter}>
-        <TouchableOpacity onPress={() => setRounds((r) => Math.max(1, r - 1))}>
-          <Text style={styles.counterButton}>−</Text>
-        </TouchableOpacity>
-        <Text style={styles.counterText}>{rounds}</Text>
-        <TouchableOpacity onPress={() => setRounds((r) => r + 1)}>
-          <Text style={styles.counterButton}>+</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={handleUnlimited}>
-          <Text style={styles.counterButton}>Endless Mode</Text>
-        </TouchableOpacity>
+      <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+        <Text style={styles.sectionTitle}>
+          Rounds: {rounds}/{maxRounds}
+        </Text>
+        <View style={styles.counter}>
+          <TouchableOpacity
+            onPress={() => setRounds((r) => Math.max(1, r - 1))}
+          >
+            <Text style={styles.counterButton}>−</Text>
+          </TouchableOpacity>
+          <Text style={styles.counterText}>{rounds}</Text>
+          <TouchableOpacity onPress={handleSetRoundIncrease}>
+            <Text style={styles.counterButton}>+</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <TouchableOpacity onPress={handleStart} style={styles.startButton}>
@@ -156,14 +182,14 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     padding: scale(20),
-    backgroundColor: "#E0F7FA",
+    backgroundColor: "#E0F7FA", // light cyan background
     flexGrow: 1,
     justifyContent: "center",
   },
   title: {
     fontSize: scale(28),
     fontWeight: "bold",
-    color: "#00796B",
+    color: "#17638A", // deep blue for strong headings
     textAlign: "center",
     marginBottom: scale(20),
   },
@@ -171,7 +197,7 @@ const styles = StyleSheet.create({
     fontSize: scale(18),
     fontWeight: "600",
     marginVertical: scale(10),
-    color: "#004D40",
+    color: "#3178a8", // medium blue for section titles
   },
   optionRow: {
     flexDirection: "row",
@@ -181,6 +207,7 @@ const styles = StyleSheet.create({
   },
   optionLabel: {
     fontSize: scale(16),
+    color: "#486f86", // muted blue-gray for labels
   },
   optionGroup: {
     flexDirection: "row",
@@ -192,17 +219,19 @@ const styles = StyleSheet.create({
     padding: scale(10),
     borderRadius: scale(8),
     borderWidth: 1,
-    borderColor: "#00796B",
+    borderColor: "#6aa4c4", // lighter blue border
+    backgroundColor: "#f5fbfe", // very light blue fill for unselected options
   },
   selectedButton: {
-    backgroundColor: "#00796B",
+    backgroundColor: "#17638A", // deep blue fill for selected
+    borderColor: "#17638A",
   },
   optionText: {
-    color: "#00796B",
+    color: "#3178a8", // medium blue text for unselected
     fontWeight: "600",
   },
   selectedText: {
-    color: "#fff",
+    color: "#E0F7FA", // very light text on selected (background color)
   },
   counter: {
     flexDirection: "row",
@@ -210,32 +239,39 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: scale(20),
     marginVertical: scale(10),
+    paddingHorizontal: 20,
   },
   counterText: {
     fontSize: scale(18),
     fontWeight: "bold",
+    color: "#486f86", // blue-gray for counter text
   },
   counterButton: {
     fontSize: scale(28),
     fontWeight: "bold",
-    color: "#00796B",
+    color: "#17638A", // deep blue for buttons
   },
   startButton: {
     marginTop: scale(20),
-    backgroundColor: "#00796B",
+    backgroundColor: "#17638A", // deep blue button
     paddingVertical: scale(14),
     alignItems: "center",
     borderRadius: scale(20),
+    shadowColor: "#14516b",
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
   },
   startText: {
-    color: "#fff",
+    color: "#E0F7FA", // light text on button
     fontSize: scale(18),
     fontWeight: "600",
   },
   listButton: {
-    backgroundColor: "#22794B",
+    backgroundColor: "#134a65", // slightly darker blue for secondary button
     marginTop: scale(20),
-    borderColor: "#00796B",
+    borderColor: "#17638A",
     borderWidth: 1.5,
     borderRadius: 25,
     paddingVertical: scale(14),
@@ -244,7 +280,7 @@ const styles = StyleSheet.create({
     width: scale(200),
   },
   listText: {
-    color: "#fff",
+    color: "#E0F7FA", // light text for list button
     fontSize: scale(14),
     fontWeight: "500",
   },

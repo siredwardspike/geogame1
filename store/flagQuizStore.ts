@@ -12,6 +12,12 @@ type FlagQuizState = {
   settings: Settings;
 
   generateQuestion: (pool?: Country[]) => void;
+  findMaxNumberOfRounds: (
+    difficulty: string,
+    region: string[],
+    pool?: Country[]
+  ) => number;
+
   submitAnswer: (country: Country) => void;
   resetQuiz: () => void;
   setSettings: (settings: Settings) => void;
@@ -47,41 +53,88 @@ export const useFlagQuizStore = create<FlagQuizState>((set, get) => ({
       correctGuesses: [],
     });
   },
-  generateQuestion: (newPool) => {
+  generateQuestion: (newPool?: Country[]) => {
     const state = get();
-    const basePool = newPool ?? state.pool;
+    const basePool: Country[] = newPool ?? state.pool;
+
+    // Filter by region
     const regionPool = basePool.filter(
-      (c) => c.region && state.settings.regions.includes(c.region)
+      (country) =>
+        country.region !== undefined &&
+        state.settings.regions.includes(country.region)
     );
+
+    // Filter by difficulty
     const difficultyPool = regionPool.filter(
-      (c) => c.difficultyLevel == state.settings.difficulty
+      (country) => country.difficultyLevel === state.settings.difficulty
     );
 
-    const filteredPool = difficultyPool.filter(
-      (country) => !state.correctGuesses.some((g) => g.name === country.name)
-    );
-    console.log(filteredPool.map((x) => x.name).length, "filteredPool");
-
-    const shuffled = shuffleArray(filteredPool);
-    if (shuffled.length < 4) {
-      console.warn(
-        "Not enough unguessed countries left to generate a question"
+    // Helper to exclude guessed countries
+    const unguessed = (list: Country[]): Country[] =>
+      list.filter(
+        (country) =>
+          !state.correctGuesses.some((guess) => guess.name === country.name)
       );
-      //router.push("/db");
+
+    // Step 1: Get initial filtered pool
+    const filteredPool = unguessed(difficultyPool);
+
+    console.log(filteredPool.map((c) => c.name).length, "filteredPool");
+
+    // Step 2: Shuffle the filtered options
+    let shuffled = shuffleArray(filteredPool);
+
+    // Step 3: Fill in with additional unguessed countries from basePool
+    if (shuffled.length < 4) {
+      const fallbackPool = unguessed(basePool).filter(
+        (country) => !shuffled.some((c) => c.name === country.name)
+      );
+
+      const extraNeeded = 4 - shuffled.length;
+      const fallbackExtras = shuffleArray(fallbackPool).slice(0, extraNeeded);
+
+      shuffled = [...shuffled, ...fallbackExtras];
+    }
+
+    // Step 4: Final check
+    if (shuffled.length < 4) {
+      console.error("Still not enough countries to generate a question.");
       return;
     }
+
+    // Step 5: Select 4 options and randomly pick the correct one
     const selected = shuffled.slice(0, 4);
     let correct = selected[Math.floor(Math.random() * 4)];
+    while (!state.settings.regions.includes(correct.region)) {
+      correct = selected[Math.floor(Math.random() * 4)];
+    }
 
+    // Step 6: Set to state
     set({
-      pool: newPool ?? state.pool, // still persist the full pool
+      pool: basePool,
       options: selected,
       correctAnswer: correct,
     });
-    console.log(
-      "Correct Guesses :",
-      state.correctGuesses.map((x) => x.name).length
+  },
+
+  findMaxNumberOfRounds: (difficulty, regions, newPool) => {
+    const state = get();
+    const basePool = newPool ?? state.pool;
+    const regionPool = basePool.filter(
+      (c) => c.region && regions.includes(c.region)
     );
+    const difficultyPool = regionPool.filter(
+      (c) => c.difficultyLevel == difficulty
+    );
+    console.log(
+      difficultyPool.length,
+      "Max number of rounds",
+      difficulty,
+      "Difficulty",
+      regions,
+      "Regions"
+    );
+    return difficultyPool.length;
   },
 
   submitAnswer: (country) => {
